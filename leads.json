@@ -1,0 +1,13 @@
+import json
+
+def save_lead(data):
+    try:
+        with open("leads.json", "r") as f:
+            leads = json.load(f)
+    except:
+        leads = []
+
+    leads.append(data)
+
+    with open("leads.json", "w") as f:
+        json.dump(leads, f, indent=4)

@@ -12,75 +12,80 @@ COURSES = {
     "web development": "Web Development — 7500 rupees, 3 months, placement available"
 }
 
-def get_ai_reply(user_message):
+def get_ai_reply(user_message, user_data):
     msg = user_message.lower().strip()
+    state = user_data.get("state", "")
 
-    # Greeting
-    if msg in ["hi", "hello", "hey", "start", "hii", "helo"]:
+    # -------------------------
+    # STATE FLOW
+    # -------------------------
+
+    if state == "ask_name":
+        if len(msg.split()) >= 2 and msg.replace(" ", "").isalpha():
+            user_data["name"] = user_message
+            user_data["state"] = "ask_phone"
+            return "Nice to meet you! 😊\n\nPlease share your phone number."
+        return "Please enter your full name (e.g. Rahul Kumar)."
+
+    if state == "ask_phone":
+        if msg.isdigit() and len(msg) == 10:
+            user_data["phone"] = user_message
+            user_data["state"] = "ask_qualification"
+            return "Got it! 📞\n\nNow share your highest qualification."
+        return "Please enter a valid 10-digit phone number."
+
+    if state == "ask_qualification":
+        user_data["qualification"] = user_message
+        user_data["state"] = "done"
+        return "🎉 You have been successfully registered!\n\nOur team will contact you soon."
+
+    # -------------------------
+    # NORMAL FLOW
+    # -------------------------
+
+    if msg in ["hi", "hello", "hey", "start"]:
         return "Hi! Welcome to SkillEdge Academy 👋\n\nHow can I help you today?"
 
-    # Enroll
-    if any(word in msg for word in ["enroll", "register", "join", "admission", "yes"]):
-        return "Great! Let's get you enrolled 🎉\n\nPlease share your full name first."
+    if "course" in msg:
+        return (
+            "Our courses:\n"
+            "• Python Programming — 5000 rupees, 2 months\n"
+            "• Data Science — 8000 rupees, 3 months\n"
+            "• Web Development — 7500 rupees, 3 months\n\n"
+            "All with placement assistance!\n\nWhich one interests you?"
+        )
 
-    # Want to learn
-    if any(word in msg for word in ["learn", "skill", "study", "interested", "want to"]):
-        return "That's great! 🌟 We have courses in:\n• Python Programming\n• Data Science\n• Web Development\n\nType any course name to know more!"
-
-    # Course list
-    if any(word in msg for word in ["course", "courses", "list", "available", "options", "offer"]):
-        return "Our courses:\n• Python Programming — 5000 rupees, 2 months\n• Data Science — 8000 rupees, 3 months\n• Web Development — 7500 rupees, 3 months\n\nAll with placement assistance!\n\nWhich one interests you?"
-    # Web development
-    if "web" in msg:
-        return "📚 Web Development — 7500 rupees, 3 months, placement available\n\nWould you like to enroll in this course?"
-    # Data science
-    if "data" in msg:
-        return "📚 Data Science — 8000 rupees, 3 months, placement available\n\nWould you like to enroll in this course?"
-
-    # Specific course
     for course, details in COURSES.items():
         if course in msg:
             return f"📚 {details}\n\nWould you like to enroll in this course?"
 
-    # Consultant or call
-    if any(word in msg for word in ["consultant", "call", "talk", "contact", "speak"]):
-        return "Please share your phone number and our team will call you within 24 hours 📞"
+    if any(word in msg for word in ["enroll", "register", "join", "yes"]):
+        user_data["state"] = "ask_name"
+        return "Great! Let's get you enrolled 🎉\n\nPlease share your full name first."
 
-    # Address
-    if any(word in msg for word in ["address", "office", "location", "visit", "where"]):
-        return "📍 Visit us at MG Road, Thrissur\n📞 Call us at 9876543210"
+    if "fee" in msg or "cost" in msg:
+        return "Fees:\n• Python — 5000\n• Data Science — 8000\n• Web Development — 7500"
 
-    # Placement
-    if any(word in msg for word in ["placement", "job", "career", "hired"]):
-        return "Yes! All our courses come with placement assistance. 85% of students get placed within 3 months ✅"
+    if "address" in msg or "location" in msg:
+        return "📍 MG Road, Thrissur\n📞 9876543210"
 
-    # Fees
-    if any(word in msg for word in ["fee", "cost", "price", "rupees", "how much"]):
-        return "Our fees:\n• Python — 5000 rupees\n• Data Science — 8000 rupees\n• Web Development — 7500 rupees\n\nEMI options available!"
+    if msg in ["ok", "thanks", "bye", "no"]:
+        return "Thank you for contacting SkillEdge Academy 😊"
 
-    # Off-topic
-    off_topic = ["what is", "who is", "why is", "how is", "when is", "weather",
-                 "cricket", "football", "movie", "politics", "news", "sport",
-                 "game", "food", "recipe", "wather"]
+    # -------------------------
+    # GROQ (OFF-TOPIC)
+    # -------------------------
+
+    off_topic = ["what is", "who is", "why", "weather", "cricket", "movie", "news"]
+
     if any(word in msg for word in off_topic):
-        return "I can only help with course enquiries 😊\n\nType 'courses' to see what we offer or 'enroll' to register."
+        try:
+            response = client.chat.completions.create(
+                messages=[{"role": "user", "content": user_message}],
+                model="llama3-8b-8192"
+            )
+            return response.choices[0].message.content
+        except:
+            return "Sorry, I couldn't process that right now."
 
-    # Qualification detection
-    qualifications = ["btech", "bsc", "mtech", "msc", "mba", "diploma",
-                      "12th", "10th", "12", "10", "plus two", "degree", 
-                      "graduate", "engineering", "plustwo", "hse", "sslc"]
-    if any(word in msg for word in qualifications):
-        return "Got it! ✅ Our team will follow up with you shortly.\n\nAnything else? "
-    ignore = ["nothing", "ok", "okay", "thanks", "thank you", "bye", "no","no thanks", "nope"]
-    if msg in ignore:
-        return "Thank you for contacting SkillEdge Academy! 😊\n\nFeel free to reach out anytime. "
-    # Name detection
-    if len(msg.split()) <= 4 and msg.replace(" ", "").isalpha():
-        return "Nice to meet you! 😊\n\nPlease share your phone number so we can contact you."
-
-    # Phone number detection
-    if any(char.isdigit() for char in msg) and len(msg.replace(" ", "")) >= 8:
-        return "Got it! 📞\n\nLastly, please share your highest qualification (e.g. 12th, Diploma, B.Tech)"
-
-    # Default
-    return "Got it! ✅ Our team will follow up with you shortly.\n\nAnything else? Type 'courses' to explore or 'enroll' to register."
+    return "Type 'courses' to explore or 'enroll' to register."

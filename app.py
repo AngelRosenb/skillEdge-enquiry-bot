@@ -5,40 +5,66 @@ import os
 
 app = Flask(__name__)
 
+# temporary memory (single user demo)
+user_data = {}
+
+
+# -----------------------------
+# SAVE FUNCTION
+# -----------------------------
+def save_to_json(data):
+    # create file if not exists
+    if not os.path.exists("leads.json"):
+        with open("leads.json", "w") as f:
+            json.dump([], f)
+
+    # read existing data safely
+    try:
+        with open("leads.json", "r") as f:
+            leads = json.load(f)
+    except:
+        leads = []
+
+    # append new lead
+    leads.append(data)
+
+    # write back
+    with open("leads.json", "w") as f:
+        json.dump(leads, f, indent=4)
+
+
+# -----------------------------
+# ROUTES
+# -----------------------------
 @app.route("/")
 def home():
     return render_template("chat.html")
+
 
 @app.route("/chat", methods=["POST"])
 def chat():
     data = request.get_json()
     user_message = data.get("message", "")
-    
-    reply = get_ai_reply(user_message)
-    
+
+    reply = get_ai_reply(user_message, user_data)
+
+    # ✅ SAVE DATA WHEN FLOW COMPLETES
+    if user_data.get("state") == "done":
+        save_to_json({
+            "name": user_data.get("name"),
+            "phone": user_data.get("phone"),
+            "qualification": user_data.get("qualification")
+        })
+
+        # reset for next user
+        user_data.clear()
+
     return jsonify({"reply": reply})
 
-@app.route("/enroll", methods=["POST"])
-def enroll():
-    data = request.get_json()
-    
-    lead = {
-        "name": data.get("name"),
-        "phone": data.get("phone"),
-        "qualification": data.get("qualification"),
-        "course": data.get("course")
-    }
-    
-    with open("leads.json", "r") as f:
-        leads = json.load(f)
-    
-    leads.append(lead)
-    
-    with open("leads.json", "w") as f:
-        json.dump(leads, f, indent=2)
-    
-    return jsonify({"status": "saved"})
 
+# -----------------------------
+# RUN
+# -----------------------------
 if __name__ == "__main__":
     print("Starting SkillEdge Enquiry Bot...")
     app.run(debug=True)
